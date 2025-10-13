@@ -193,7 +193,7 @@ public class KMZTestUtil {
         }
 
         // 3. 封装到 Wayline 中
-        wayline.setWaylineID(0); // 第一条航线 ID 设为 0
+        wayline.setWaylineId(0); // 第一条航线 ID 设为 0
         wayline.setWaypoints(waypoints);
 
         // 4. 封装到 WaylineMission 中
