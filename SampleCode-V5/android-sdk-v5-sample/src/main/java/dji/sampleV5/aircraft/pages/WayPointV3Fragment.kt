@@ -1187,10 +1187,14 @@ class WayPointV3Fragment : DJIFragment() {
     // 建立 WebSocket 连接
     private fun initWebSocket() {
         val request = okhttp3.Request.Builder()
-            .url("ws://yourserver:port/path") // WebSocket 地址
+            .url("ws://10.10.41.232:9000/ws/mission") // WebSocket 地址
             .build()
         val client = okhttp3.OkHttpClient()
         client.newWebSocket(request, object : okhttp3.WebSocketListener() {
+            override fun onOpen(webSocket: okhttp3.WebSocket, response: okhttp3.Response) {
+                Log.d("WS", "WebSocket connected")
+            }
+
             override fun onMessage(webSocket: okhttp3.WebSocket, text: String) {
                 try {
                     val json = org.json.JSONObject(text)
@@ -1198,21 +1202,24 @@ class WayPointV3Fragment : DJIFragment() {
                     val lon = json.getDouble("longitude")
                     val alt = json.getDouble("altitude")
                     val point = WaylineLocationCoordinate3D(lat, lon, alt)
-                    autoWaypoints.add(point)
+
+                    // 注意线程安全
+                    synchronized(autoWaypoints) {
+                        autoWaypoints.add(point)
+                    }
+
                     Log.d("WS", "Received waypoint: $lat, $lon, $alt")
                 } catch (e: Exception) {
                     Log.e("WS", "Failed to parse waypoint: ${e.message}")
                 }
             }
 
-            override fun onOpen(webSocket: okhttp3.WebSocket, response: okhttp3.Response) {
-                Log.d("WS", "WebSocket connected")
-            }
-
             override fun onFailure(webSocket: okhttp3.WebSocket, t: Throwable, response: okhttp3.Response?) {
                 Log.e("WS", "WebSocket error: ${t.message}")
             }
         })
-        client.dispatcher.executorService.shutdown()
+
+        // 不要立即 shutdown，否则连接会立刻断开
+        // client.dispatcher.executorService.shutdown()
     }
 }
