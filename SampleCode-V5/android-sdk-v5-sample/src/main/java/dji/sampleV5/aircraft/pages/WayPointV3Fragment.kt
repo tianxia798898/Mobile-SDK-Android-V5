@@ -17,6 +17,7 @@ import android.os.storage.StorageManager
 import android.os.storage.StorageVolume
 import android.provider.DocumentsContract
 import android.text.TextUtils
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -130,6 +131,9 @@ class WayPointV3Fragment : DJIFragment() {
     var curMissionExecuteState: WaypointMissionExecuteState? = null
     var selectWaylines: ArrayList<Int> = ArrayList()
 
+    // 固定列表
+    val autoWaypoints: ArrayList<WaylineLocationCoordinate3D> = ArrayList()
+
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
@@ -145,6 +149,8 @@ class WayPointV3Fragment : DJIFragment() {
         initView(savedInstanceState)
         initData()
         WPMZManager.getInstance().init(ContextUtil.getContext())
+        //启动 WebSocket
+        initWebSocket()
     }
 
     private fun prepareMissionData() {
@@ -233,14 +239,11 @@ class WayPointV3Fragment : DJIFragment() {
 //                        ToastUtils.showToast("startMission Failed " + getErroMsg(error))
 //                    }
 //                })
-            // ✅ Step 1：准备自定义航点数据（示例）
-            val autoWaypoints = arrayListOf(
-                WaylineLocationCoordinate3D(22.540000, 113.940000, 50.0),
-                WaylineLocationCoordinate3D(22.540000, 113.940195, 50.0),
-                WaylineLocationCoordinate3D(22.540180, 113.940195, 50.0),
-                WaylineLocationCoordinate3D(22.540180, 113.940000, 50.0),
-                WaylineLocationCoordinate3D(22.540000, 113.940000, 50.0)
-            )
+            // ✅ Step 1：
+            if (autoWaypoints.isEmpty()) {
+                ToastUtils.showToast("等待 WebSocket 接收航点")
+                return@setOnClickListener
+            }
 
             // ✅ Step 2：根据这些点生成 Waypoint 信息
             showWaypoints.clear()
@@ -1179,5 +1182,37 @@ class WayPointV3Fragment : DJIFragment() {
                 it.remove()
             }
         }
+    }
+
+    // 建立 WebSocket 连接
+    private fun initWebSocket() {
+        val request = okhttp3.Request.Builder()
+            .url("ws://yourserver:port/path") // WebSocket 地址
+            .build()
+        val client = okhttp3.OkHttpClient()
+        client.newWebSocket(request, object : okhttp3.WebSocketListener() {
+            override fun onMessage(webSocket: okhttp3.WebSocket, text: String) {
+                try {
+                    val json = org.json.JSONObject(text)
+                    val lat = json.getDouble("latitude")
+                    val lon = json.getDouble("longitude")
+                    val alt = json.getDouble("altitude")
+                    val point = WaylineLocationCoordinate3D(lat, lon, alt)
+                    autoWaypoints.add(point)
+                    Log.d("WS", "Received waypoint: $lat, $lon, $alt")
+                } catch (e: Exception) {
+                    Log.e("WS", "Failed to parse waypoint: ${e.message}")
+                }
+            }
+
+            override fun onOpen(webSocket: okhttp3.WebSocket, response: okhttp3.Response) {
+                Log.d("WS", "WebSocket connected")
+            }
+
+            override fun onFailure(webSocket: okhttp3.WebSocket, t: Throwable, response: okhttp3.Response?) {
+                Log.e("WS", "WebSocket error: ${t.message}")
+            }
+        })
+        client.dispatcher.executorService.shutdown()
     }
 }
