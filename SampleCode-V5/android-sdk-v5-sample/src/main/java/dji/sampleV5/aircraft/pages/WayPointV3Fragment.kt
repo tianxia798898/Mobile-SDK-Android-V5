@@ -46,6 +46,7 @@ import dji.sdk.keyvalue.key.KeyTools
 import dji.sdk.keyvalue.value.common.LocationCoordinate2D
 import dji.sdk.keyvalue.value.flightcontroller.FlightMode
 import dji.sdk.wpmz.jni.JNIWPMZManager
+import dji.sdk.wpmz.value.mission.ActionAircraftHoverParam
 import dji.sdk.wpmz.value.mission.Wayline
 import dji.sdk.wpmz.value.mission.WaylineActionInfo
 import dji.sdk.wpmz.value.mission.WaylineActionType
@@ -129,6 +130,9 @@ class WayPointV3Fragment : DJIFragment() {
     var validLenth: Int = 2
     var curMissionExecuteState: WaypointMissionExecuteState? = null
     var selectWaylines: ArrayList<Int> = ArrayList()
+
+    // 悬停时长（单位：秒）
+    val hoverSeconds = 10.0
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -246,14 +250,28 @@ class WayPointV3Fragment : DJIFragment() {
             showWaypoints.clear()
             autoWaypoints.forEachIndexed { index, loc ->
                 val wp = WaypointInfoModel()
-                val waypoint = WaylineWaypoint()
-                waypoint.waypointIndex = index
-                waypoint.location = WaylineLocationCoordinate2D(loc.latitude, loc.longitude)
-                waypoint.height = loc.altitude
-                waypoint.ellipsoidHeight = loc.altitude
-                waypoint.speed = 3.0
-                waypoint.useGlobalTurnParam = true
+
+                // 创建航点
+                val waypoint = WaylineWaypoint().apply {
+                    waypointIndex = index
+                    location = WaylineLocationCoordinate2D(loc.latitude, loc.longitude)
+                    height = loc.altitude
+                    ellipsoidHeight = loc.altitude
+                    speed = 3.0
+                    useGlobalTurnParam = true
+                }
+
+                // 创建悬停动作
+                val hoverAction = WaylineActionInfo().apply {
+                    actionType = WaylineActionType.HOVER
+                    val param = ActionAircraftHoverParam()
+                    param.hoverTime = hoverSeconds
+                    aircraftHoverParam = param
+                }
+
+                // 为当前航点绑定动作
                 wp.waylineWaypoint = waypoint
+                wp.actionInfos = listOf(hoverAction)
                 showWaypoints.add(wp)
             }
 
@@ -1179,5 +1197,13 @@ class WayPointV3Fragment : DJIFragment() {
                 it.remove()
             }
         }
+    }
+    private fun transAircraftStay(hoverTime: Int): WaylineActionInfo {
+        val info = WaylineActionInfo()
+        info.actionType = WaylineActionType.HOVER
+        val param = ActionAircraftHoverParam()
+        param.hoverTime = hoverTime.toDouble()
+        info.aircraftHoverParam = param
+        return info
     }
 }
