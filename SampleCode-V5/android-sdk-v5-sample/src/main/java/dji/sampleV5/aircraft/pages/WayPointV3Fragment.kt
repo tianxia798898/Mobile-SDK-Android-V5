@@ -269,8 +269,13 @@ class WayPointV3Fragment : DJIFragment() {
                     aircraftHoverParam = param
                 }
 
+//                val photoAction = WaylineActionInfo().apply {
+//                    actionType = WaylineActionType.TAKE_PHOTO
+//                }
+
                 // 为当前航点绑定动作
                 wp.waylineWaypoint = waypoint
+//                wp.actionInfos = listOf(hoverAction,photoAction)
                 wp.actionInfos = listOf(hoverAction)
                 showWaypoints.add(wp)
             }
